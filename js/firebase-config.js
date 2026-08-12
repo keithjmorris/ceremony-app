@@ -12,7 +12,7 @@ export const firebaseConfig = {
 
 // The Mux Playback ID for this event's live stream. The same ID keeps working
 // to play the recorded video after the stream ends, so you only set this once.
-export const MUX_PLAYBACK_ID = "N2jE01AhX2bEAOCYx9iolRFYeeK8WqFafLSAbcuGQbc00";
+export const MUX_PLAYBACK_ID = "VPNItZSszjiEqWpem9nVT3lQYMiwdW58FznfMQHrhgU";
 
 // A short label shown on the live/gallery pages.
 export const EVENT_NAME = "The Ceremony";
