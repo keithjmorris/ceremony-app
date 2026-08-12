@@ -13,6 +13,7 @@
     <nav class="tabs">
       <a href="/live.html" class="active">Watch</a>
       <a href="/gallery.html">Photos</a>
+      <a href="/upload.html">Add photo</a>
     </nav>
 
     <div class="seal" id="seal">Loading</div>
@@ -29,7 +30,7 @@
 </div>
 
 <script type="module">
-  import { requireGuest, signOut, auth } from '/js/auth.js';
+  import { requireGuest, signOutGuest } from '/js/auth.js';
   import { MUX_PLAYBACK_ID, EVENT_NAME } from '/js/firebase-config.js';
 
   requireGuest((user) => {
@@ -56,9 +57,9 @@
       }
     });
 
-    document.getElementById('signout-link').addEventListener('click', async (e) => {
+    document.getElementById('signout-link').addEventListener('click', (e) => {
       e.preventDefault();
-      await signOut(auth);
+      signOutGuest();
       window.location.href = '/index.html';
     });
   });

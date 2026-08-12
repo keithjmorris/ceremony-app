@@ -2,10 +2,8 @@ import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-  onAuthStateChanged,
-  signOut
+  signInAnonymously,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore,
@@ -17,48 +15,65 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Completes sign-in if the visitor just clicked the emailed magic link.
-export async function completeSignInIfNeeded() {
-  if (isSignInWithEmailLink(auth, window.location.href)) {
-    let email = window.localStorage.getItem('ceremony_email_for_signin');
-    if (!email) {
-      email = window.prompt('Please confirm the email address this invite was sent to:');
-    }
-    try {
-      await signInWithEmailLink(auth, email, window.location.href);
-      window.localStorage.removeItem('ceremony_email_for_signin');
-      // Clean the sign-in token out of the URL bar.
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (err) {
-      console.error('Sign-in link failed:', err);
-    }
-  }
-}
+const STORAGE_EMAIL_KEY = 'ceremony_guest_email';
+const STORAGE_VERIFIED_KEY = 'ceremony_verified';
 
-// Checks the Firestore "guests" collection for this email.
-// Guests are added manually (or via a small script) as documents keyed by lowercased email.
-async function isInvitedGuest(email) {
-  if (!email) return false;
-  const guestDoc = await getDoc(doc(db, 'guests', email.toLowerCase()));
-  return guestDoc.exists();
-}
-
-// Call this at the top of every protected page. Redirects home if the visitor
-// isn't signed in, or isn't on the guest list.
-export function requireGuest(onReady) {
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = '/index.html';
-      return;
-    }
-    const invited = await isInvitedGuest(user.email);
-    if (!invited) {
-      await signOut(auth);
-      window.location.href = '/index.html?denied=1';
-      return;
-    }
-    onReady(user);
+// Makes sure we have an anonymous Firebase Auth session, which is what lets
+// the app read Firestore at all (rules require request.auth != null).
+// Guests never see this — it's invisible plumbing, not a login.
+function ensureAnonymousSession() {
+  return new Promise((resolve) => {
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        resolve(user);
+      } else {
+        const cred = await signInAnonymously(auth);
+        resolve(cred.user);
+      }
+    });
   });
 }
 
-export { signOut };
+// Checks the entered email against the guest list and the entered passcode
+// against the shared code stored in Firestore (config/access).
+// Returns true and remembers the guest on success; false on any mismatch.
+export async function checkAccess(email, passcode) {
+  await ensureAnonymousSession();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const guestDoc = await getDoc(doc(db, 'guests', normalizedEmail));
+  if (!guestDoc.exists()) return false;
+
+  const accessDoc = await getDoc(doc(db, 'config', 'access'));
+  if (!accessDoc.exists()) return false;
+
+  const expectedCode = (accessDoc.data().code || '').trim();
+  if (passcode.trim() !== expectedCode) return false;
+
+  window.localStorage.setItem(STORAGE_EMAIL_KEY, normalizedEmail);
+  window.localStorage.setItem(STORAGE_VERIFIED_KEY, 'true');
+  return true;
+}
+
+export function getGuestEmail() {
+  return window.localStorage.getItem(STORAGE_EMAIL_KEY) || '';
+}
+
+export function signOutGuest() {
+  window.localStorage.removeItem(STORAGE_EMAIL_KEY);
+  window.localStorage.removeItem(STORAGE_VERIFIED_KEY);
+}
+
+// Call this at the top of every protected page (live.html, gallery.html, upload.html).
+// Redirects home if the visitor hasn't passed the email + passcode check.
+export function requireGuest(onReady) {
+  ensureAnonymousSession().then(() => {
+    const verified = window.localStorage.getItem(STORAGE_VERIFIED_KEY) === 'true';
+    const email = getGuestEmail();
+    if (!verified || !email) {
+      window.location.href = '/index.html';
+      return;
+    }
+    onReady({ email });
+  });
+}
