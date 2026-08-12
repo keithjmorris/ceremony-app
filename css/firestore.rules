@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A guest can only read their OWN entry in the guest list — enough to
+    // confirm they're invited, without exposing the whole guest list.
+    match /guests/{email} {
+      allow read: if request.auth != null && request.auth.token.email.lower() == email;
+      allow write: if false; // add guests via the Firebase Console or the admin script, not the app
+    }
+
+    // Any signed-in guest can view the photo album, but not edit it from the app.
+    match /photos/{photoId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

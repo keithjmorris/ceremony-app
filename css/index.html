@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You're invited</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="seal">Invite<br>Only</div>
+    <p class="eyebrow">Private ceremony</p>
+    <h1>You're invited</h1>
+    <p class="sub">Enter the email address your invitation was sent to. We'll send you a one-time link — no password needed.</p>
+
+    <form id="signin-form">
+      <label for="email">Email address</label>
+      <input type="email" id="email" required placeholder="you@example.com" autocomplete="email">
+      <button type="submit">Send my invite link</button>
+    </form>
+
+    <div class="msg" id="msg"></div>
+    <a class="foot-link" href="#" id="denied-note" style="display:none;">This email isn't on the guest list. Contact the couple if this seems wrong.</a>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, completeSignInIfNeeded } from '/js/auth.js';
+  import { sendSignInLinkToEmail } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+  // If they're already signed in and on the list, skip straight to the live page.
+  // (requireGuest on live.html/gallery.html will do the actual list check.)
+  onAuthStateChanged(auth, (user) => {
+    if (user && !window.location.search.includes('denied')) {
+      window.location.href = '/live.html';
+    }
+  });
+
+  completeSignInIfNeeded();
+
+  if (window.location.search.includes('denied=1')) {
+    document.getElementById('denied-note').style.display = 'block';
+  }
+
+  const form = document.getElementById('signin-form');
+  const msg = document.getElementById('msg');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    const actionCodeSettings = {
+      url: window.location.origin + '/index.html',
+      handleCodeInApp: true
+    };
+    try {
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('ceremony_email_for_signin', email);
+      msg.textContent = "Check your inbox — tap the link we just sent to " + email + ".";
+      msg.className = 'msg show success';
+    } catch (err) {
+      console.error(err);
+      msg.textContent = "Something went wrong sending that link. Please try again.";
+      msg.className = 'msg show error';
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live — Ceremony</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player@3" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="content" style="display:none;">
+    <nav class="tabs">
+      <a href="/live.html" class="active">Watch</a>
+      <a href="/gallery.html">Photos</a>
+    </nav>
+
+    <div class="seal" id="seal">Loading</div>
+    <p class="eyebrow" id="status-label">Checking status&hellip;</p>
+    <h1 id="event-name">The Ceremony</h1>
+    <p class="sub" id="status-sub">One moment while we connect.</p>
+
+    <div class="player-frame">
+      <mux-player id="player" stream-type="on-demand" playback-id="" metadata-video-title="Ceremony" autoplay="muted"></mux-player>
+    </div>
+
+    <a class="foot-link" href="#" id="signout-link">Sign out</a>
+  </div>
+</div>
+
+<script type="module">
+  import { requireGuest, signOut, auth } from '/js/auth.js';
+  import { MUX_PLAYBACK_ID, EVENT_NAME } from '/js/firebase-config.js';
+
+  requireGuest((user) => {
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('event-name').textContent = EVENT_NAME;
+
+    const player = document.getElementById('player');
+    player.setAttribute('playback-id', MUX_PLAYBACK_ID);
+
+    // mux-player exposes stream state once metadata loads; we reflect it in the seal + copy.
+    player.addEventListener('loadedmetadata', () => {
+      const isLive = player.streamType === 'live' || player.streamType === 'll-live';
+      const seal = document.getElementById('seal');
+      if (isLive) {
+        seal.textContent = 'Live Now';
+        seal.className = 'seal is-live';
+        document.getElementById('status-label').textContent = 'Streaming now';
+        document.getElementById('status-sub').textContent = "You're watching live.";
+      } else {
+        seal.textContent = 'Recorded';
+        seal.className = 'seal is-archived';
+        document.getElementById('status-label').textContent = 'Recording';
+        document.getElementById('status-sub').textContent = "The live stream has ended — here's the recording.";
+      }
+    });
+
+    document.getElementById('signout-link').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await signOut(auth);
+      window.location.href = '/index.html';
+    });
+  });
+</script>
+</body>
+</html>
