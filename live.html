@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player@3" defer></script>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap wide">
   <div class="card" id="content" style="display:none;">
     <nav class="tabs">
       <a href="/live.html" class="active">Watch</a>
@@ -22,7 +22,7 @@
     <p class="sub" id="status-sub">One moment while we connect.</p>
 
     <div class="player-frame">
-      <mux-player id="player" stream-type="on-demand" playback-id="" metadata-video-title="Ceremony" autoplay="muted"></mux-player>
+      <mux-player id="player" playback-id="" metadata-video-title="Ceremony" autoplay="muted"></mux-player>
     </div>
 
     <a class="foot-link" href="#" id="signout-link">Sign out</a>
@@ -39,6 +39,14 @@
 
     const player = document.getElementById('player');
     player.setAttribute('playback-id', MUX_PLAYBACK_ID);
+
+    // If the stream isn't live yet (or briefly drops), quietly retry every few
+    // seconds rather than making guests refresh the page themselves.
+    player.addEventListener('error', () => {
+      setTimeout(() => {
+        player.setAttribute('playback-id', MUX_PLAYBACK_ID);
+      }, 5000);
+    });
 
     // mux-player exposes stream state once metadata loads; we reflect it in the seal + copy.
     player.addEventListener('loadedmetadata', () => {

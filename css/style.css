@@ -216,6 +216,10 @@ nav.tabs a.active { color: var(--forest); border-bottom-color: var(--forest); }
   text-align: center;
 }
 
+.wrap.wide {
+  max-width: 920px;
+}
+
 .player-frame {
   border-radius: 3px;
   overflow: hidden;
