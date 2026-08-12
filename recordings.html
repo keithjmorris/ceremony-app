@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recordings — Ceremony</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player@3" defer></script>
+</head>
+<body>
+<div class="wrap wide">
+  <div class="card" id="content" style="display:none;">
+    <nav class="tabs">
+      <a href="/live.html">Watch</a>
+      <a href="/gallery.html">Photos</a>
+      <a href="/upload.html">Add photo</a>
+      <a href="/recordings.html" class="active">Recordings</a>
+    </nav>
+
+    <p class="eyebrow">Watch again</p>
+    <h1>Recordings</h1>
+    <p class="sub">Every past broadcast, ready to watch whenever you like.</p>
+
+    <div class="player-frame" id="playerFrame" style="display:none;">
+      <mux-player id="player" playback-id="" metadata-video-title="Recording"></mux-player>
+    </div>
+
+    <div id="list"></div>
+    <p class="gallery-empty" id="empty" style="display:none;">No recordings have been added yet — check back soon.</p>
+
+    <a class="foot-link" href="#" id="signout-link">Sign out</a>
+  </div>
+</div>
+
+<style>
+  .recording-row {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: #fff;
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .recording-row:hover { border-color: var(--forest-dim); }
+  .recording-row.playing { border-color: var(--forest); background: #F2F1E9; }
+</style>
+
+<script type="module">
+  import { requireGuest, signOutGuest, db } from '/js/auth.js';
+  import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+  requireGuest(async () => {
+    document.getElementById('content').style.display = 'block';
+
+    const list = document.getElementById('list');
+    const empty = document.getElementById('empty');
+    const playerFrame = document.getElementById('playerFrame');
+    const player = document.getElementById('player');
+
+    // Recordings are documents in the "videos" collection: { title, playbackId, order }
+    const q = query(collection(db, 'videos'), orderBy('order', 'asc'));
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      empty.style.display = 'block';
+    } else {
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'recording-row';
+        row.textContent = data.title || 'Untitled recording';
+        row.addEventListener('click', () => {
+          document.querySelectorAll('.recording-row').forEach(r => r.classList.remove('playing'));
+          row.classList.add('playing');
+          player.setAttribute('playback-id', data.playbackId);
+          playerFrame.style.display = 'block';
+          playerFrame.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        list.appendChild(row);
+      });
+    }
+
+    document.getElementById('signout-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      signOutGuest();
+      window.location.href = '/index.html';
+    });
+  });
+</script>
+</body>
+</html>
