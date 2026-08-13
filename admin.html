@@ -30,6 +30,15 @@
     margin-bottom: 10px;
     background: #fff;
   }
+  .asset-row .asset-thumb {
+    width: 100%;
+    max-width: 280px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    display: block;
+    margin-bottom: 10px;
+    background: #000;
+  }
   .asset-row .meta {
     font-size: 13px;
     color: var(--ink-soft);
@@ -95,6 +104,7 @@
         const durationLabel = asset.durationSeconds ? `${Math.round(asset.durationSeconds / 60)} min` : '';
 
         row.innerHTML = `
+          <img class="asset-thumb" src="https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=320&time=1" alt="" loading="lazy">
           <div class="meta">${dateLabel}${durationLabel ? ' · ' + durationLabel : ''}</div>
           <input type="text" placeholder="Title (e.g. Rehearsal, The Ceremony)" class="title-input">
           <button type="button" class="add-btn">Add to Recordings</button>
