@@ -2,7 +2,6 @@
 // It's fine for these values to be visible in the browser — Firebase security is enforced by
 // Firestore/Storage rules, not by hiding this config.
 export const firebaseConfig = {
-  const firebaseConfig = {
   apiKey: "AIzaSyATbBqtBPtXUyNMb_YOHz7pFv5Lbn57cyM",
   authDomain: "our-ceremony.firebaseapp.com",
   projectId: "our-ceremony",
