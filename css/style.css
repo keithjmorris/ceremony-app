@@ -130,7 +130,7 @@ label {
   margin-bottom: 6px;
 }
 
-input[type="email"] {
+input[type="email"], input[type="text"] {
   width: 100%;
   padding: 13px 14px;
   border: 1px solid var(--line);
@@ -142,7 +142,7 @@ input[type="email"] {
   margin-bottom: 16px;
 }
 
-input[type="email"]:focus {
+input[type="email"]:focus, input[type="text"]:focus  {
   outline: 2px solid var(--forest-dim);
   outline-offset: 1px;
 }
