@@ -17,10 +17,17 @@ service cloud.firestore {
       allow write: if false; // set/change via the Firebase Console
     }
 
-    // Any signed-in guest can browse past recordings.
+    // Any signed-in guest can browse past recordings. Creation is allowed at the
+    // database level (same soft-trust model as photos) so the in-app admin page
+    // can write directly — the admin page itself is only reachable/usable by
+    // ADMIN_EMAIL, but this isn't cryptographically enforced.
     match /videos/{videoId} {
       allow read: if request.auth != null;
-      allow write: if false; // add entries via the Firebase Console after each broadcast
+      allow create: if request.auth != null
+                    && request.resource.data.title is string
+                    && request.resource.data.playbackId is string
+                    && request.resource.data.order is number;
+      allow update, delete: if false;
     }
 
     // Any signed-in (incl. anonymous) guest can view the album and add photos.

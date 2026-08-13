@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Ceremony</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap wide">
+  <div class="card" id="content" style="display:none;">
+    <p class="eyebrow">Admin only</p>
+    <h1>Add a recording</h1>
+    <p class="sub">Pick a recent Mux recording and give it a title — it'll appear on the Recordings page immediately.</p>
+
+    <div id="loading" class="gallery-empty">Loading recent recordings from Mux&hellip;</div>
+    <div id="list"></div>
+    <p class="gallery-empty" id="empty" style="display:none;">No ready recordings found on Mux yet.</p>
+    <div class="msg" id="msg"></div>
+
+    <a class="foot-link" href="/recordings.html">Back to Recordings</a>
+  </div>
+</div>
+
+<style>
+  .asset-row {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .asset-row .meta {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .asset-row input[type="text"] {
+    margin-bottom: 10px;
+  }
+  .asset-row button {
+    width: auto;
+    padding: 9px 16px;
+    font-size: 14px;
+  }
+  .asset-row.added {
+    opacity: 0.5;
+  }
+</style>
+
+<script type="module">
+  import { requireGuest, db, getGuestEmail } from '/js/auth.js';
+  import { ADMIN_EMAIL } from '/js/firebase-config.js';
+  import { collection, addDoc, getDocs, query } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+  requireGuest(async () => {
+    if (getGuestEmail() !== ADMIN_EMAIL) {
+      window.location.href = '/live.html';
+      return;
+    }
+
+    document.getElementById('content').style.display = 'block';
+
+    const loading = document.getElementById('loading');
+    const list = document.getElementById('list');
+    const empty = document.getElementById('empty');
+    const msg = document.getElementById('msg');
+
+    // Figure out the next order number based on how many recordings already exist.
+    const existingSnap = await getDocs(query(collection(db, 'videos')));
+    let nextOrder = existingSnap.size + 1;
+
+    try {
+      const resp = await fetch('/api/mux-recent-assets');
+      const data = await resp.json();
+      loading.style.display = 'none';
+
+      if (!resp.ok) {
+        msg.textContent = 'Could not load recordings from Mux: ' + (data.error?.error?.messages?.[0] || data.error || 'unknown error');
+        msg.className = 'msg show error';
+        return;
+      }
+
+      if (!data.assets || !data.assets.length) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      data.assets.forEach((asset) => {
+        const row = document.createElement('div');
+        row.className = 'asset-row';
+
+        const date = new Date(Number(asset.createdAt) * 1000);
+        const dateLabel = date.toLocaleString();
+        const durationLabel = asset.durationSeconds ? `${Math.round(asset.durationSeconds / 60)} min` : '';
+
+        row.innerHTML = `
+          <div class="meta">${dateLabel}${durationLabel ? ' · ' + durationLabel : ''}</div>
+          <input type="text" placeholder="Title (e.g. Rehearsal, The Ceremony)" class="title-input">
+          <button type="button" class="add-btn">Add to Recordings</button>
+        `;
+
+        row.querySelector('.add-btn').addEventListener('click', async () => {
+          const title = row.querySelector('.title-input').value.trim();
+          if (!title) {
+            window.alert('Please enter a title first.');
+            return;
+          }
+          const btn = row.querySelector('.add-btn');
+          btn.disabled = true;
+          btn.textContent = 'Adding…';
+          try {
+            await addDoc(collection(db, 'videos'), {
+              title,
+              playbackId: asset.playbackId,
+              order: nextOrder++
+            });
+            row.classList.add('added');
+            btn.textContent = 'Added ✓';
+          } catch (err) {
+            console.error(err);
+            btn.disabled = false;
+            btn.textContent = 'Add to Recordings';
+            window.alert("Couldn't add that recording — please try again.");
+          }
+        });
+
+        list.appendChild(row);
+      });
+    } catch (err) {
+      loading.style.display = 'none';
+      console.error(err);
+      msg.textContent = 'Something went wrong loading recordings.';
+      msg.className = 'msg show error';
+    }
+  });
+</script>
+</body>
+</html>

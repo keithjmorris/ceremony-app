@@ -52,11 +52,20 @@
 </style>
 
 <script type="module">
-  import { requireGuest, signOutGuest, db } from '/js/auth.js';
+  import { requireGuest, signOutGuest, db, getGuestEmail } from '/js/auth.js';
+  import { ADMIN_EMAIL } from '/js/firebase-config.js';
   import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
   requireGuest(async () => {
     document.getElementById('content').style.display = 'block';
+
+    if (getGuestEmail() === ADMIN_EMAIL) {
+      const adminLink = document.createElement('a');
+      adminLink.href = '/admin.html';
+      adminLink.className = 'foot-link';
+      adminLink.textContent = 'Add a recording (admin)';
+      document.getElementById('content').appendChild(adminLink);
+    }
 
     const list = document.getElementById('list');
     const empty = document.getElementById('empty');

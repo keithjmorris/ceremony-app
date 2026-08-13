@@ -51,21 +51,19 @@ No manual step needed — any signed-in guest can add a photo from `upload.html`
 
 Guests can delete their own uploads, and you can delete any photo, using the small × button that appears on hover in the album — set your own email as `ADMIN_EMAIL` in `js/firebase-config.js` to enable this for yourself. Note this isn't strongly enforced (guests aren't individually authenticated under the passcode model), so treat it as a convenience for a trusted group rather than a hard security boundary. Photos uploaded before this feature was added won't have their underlying file removed from Storage on delete (only the album entry) — that's fine for a handful of older test photos, just something to know.
 
-## Step 5 — Adding each recording to the archive
+## Step 5 — Adding recordings from the admin page (no laptop needed)
 
-- `live.html` ("Watch") always shows whatever is currently broadcasting, live.
-- `recordings.html` ("Recordings") is a separate, browsable archive of every past broadcast — rehearsal, ceremony, speeches, whatever you stream — each kept permanently as its own entry.
+There's an in-app admin page at `/admin.html` (linked quietly at the bottom of the Recordings page, visible only when you're signed in as `ADMIN_EMAIL`) that lists your recent Mux recordings and lets you title and add one with a tap — from your phone, at the venue, no Firebase Console or Mux dashboard needed.
 
-Each time you start and stop a broadcast in Larix, Mux automatically saves it as a new, separate recording with its own permanent ID — even though every broadcast uses the same Larix connection and stream key. To make a recording appear on the Recordings page:
+This needs a one-time setup so the site can talk to Mux on your behalf:
 
-1. In the Mux dashboard, go to **Video → Assets** (not Live Streams). Find the asset that matches when you just finished broadcasting — sorted by most recent.
-2. Open it and copy its **Playback ID** (this is different from the live stream's own Playback ID you set in `firebase-config.js`).
-3. In Firebase Console → Firestore Database → `videos` collection (create it if it doesn't exist yet) → Add document, with these fields:
-   - `title` (string) — e.g. `"Rehearsal"`, `"The Ceremony"`, `"Speeches"`
-   - `playbackId` (string) — the asset's Playback ID from step 2
-   - `order` (number) — `1`, `2`, `3`... controls the order they're listed in
+1. In Mux, go to **Settings → Access Tokens → Generate new token**. Under Permissions, check **Mux Video** (read access is enough — you don't need Mux Data or write access). Name it something like `ceremony-admin`. Click Generate, and **copy both the Token ID and Token Secret immediately** — the secret is only shown once.
+2. In Vercel, go to your project → **Settings → Environment Variables**. Add two:
+   - `MUX_TOKEN_ID` → the Token ID from step 1
+   - `MUX_TOKEN_SECRET` → the Token Secret from step 1
+3. Redeploy (Vercel → Deployments → ⋯ on the latest one → Redeploy) so the new environment variables take effect.
 
-That's it — no redeploy needed, it appears on the Recordings page immediately.
+That's it — from then on, visiting `/admin.html` while signed in as your admin email shows a list of ready recordings pulled live from Mux, each with a text box for the title and an "Add to Recordings" button.
 
 ## Step 6 — Push to GitHub and deploy on Vercel
 
