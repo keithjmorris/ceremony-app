@@ -34,10 +34,12 @@
 
 <style>
   .recording-row {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 14px;
     width: 100%;
     text-align: left;
-    padding: 14px 16px;
+    padding: 10px;
     margin-bottom: 8px;
     border: 1px solid var(--line);
     border-radius: 3px;
@@ -46,6 +48,14 @@
     font-size: 15px;
     color: var(--ink);
     cursor: pointer;
+  }
+  .recording-row .recording-thumb {
+    width: 96px;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    border-radius: 3px;
+    background: #000;
+    flex-shrink: 0;
   }
   .recording-row:hover { border-color: var(--forest-dim); }
   .recording-row.playing { border-color: var(--forest); background: #F2F1E9; }
@@ -84,7 +94,10 @@
         const row = document.createElement('button');
         row.type = 'button';
         row.className = 'recording-row';
-        row.textContent = data.title || 'Untitled recording';
+        row.innerHTML = `
+          <img class="recording-thumb" src="https://image.mux.com/${data.playbackId}/thumbnail.jpg?width=320&time=1" alt="">
+          <span>${data.title || 'Untitled recording'}</span>
+        `;
         row.addEventListener('click', () => {
           document.querySelectorAll('.recording-row').forEach(r => r.classList.remove('playing'));
           row.classList.add('playing');
