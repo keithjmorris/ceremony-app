@@ -24,13 +24,18 @@ service cloud.firestore {
     }
 
     // Any signed-in (incl. anonymous) guest can view the album and add photos.
-    // Nobody can edit or delete an entry from the app once it's posted.
+    // Delete is allowed for any signed-in guest at the database level — the app's
+    // UI only shows the delete option to the uploader or the admin email, but
+    // this isn't cryptographically enforced since guests aren't individually
+    // authenticated (see the passcode sign-in model).
     match /photos/{photoId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.url is string
+                    && request.resource.data.storagePath is string
                     && request.resource.data.createdAt is timestamp;
-      allow update, delete: if false;
+      allow delete: if request.auth != null;
+      allow update: if false;
     }
   }
 }

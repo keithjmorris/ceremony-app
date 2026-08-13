@@ -208,7 +208,30 @@ nav.tabs a.active { color: var(--forest); border-bottom-color: var(--forest); }
   object-fit: cover;
   border-radius: 3px;
   border: 1px solid var(--line);
+  display: block;
 }
+.photo-tile {
+  position: relative;
+}
+.photo-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: rgba(38, 36, 32, 0.72);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.photo-delete:hover { background: var(--live-red); }
 .gallery-empty {
   font-size: 14px;
   color: var(--ink-soft);

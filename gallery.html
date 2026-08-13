@@ -28,16 +28,21 @@
 </div>
 
 <script type="module">
-  import { requireGuest, signOutGuest, db } from '/js/auth.js';
-  import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+  import { requireGuest, signOutGuest, db, getGuestEmail } from '/js/auth.js';
+  import { ADMIN_EMAIL } from '/js/firebase-config.js';
+  import { collection, query, orderBy, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+  import { getStorage, ref, deleteObject } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
 
-  requireGuest(async (user) => {
+  const storage = getStorage();
+
+  requireGuest(async () => {
     document.getElementById('content').style.display = 'block';
 
     const grid = document.getElementById('grid');
     const empty = document.getElementById('empty');
+    const myEmail = getGuestEmail();
 
-    // Photos are documents in the "photos" collection: { url, caption, uploadedBy, createdAt }
+    // Photos are documents in the "photos" collection: { url, storagePath, caption, uploadedBy, createdAt }
     const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
 
@@ -46,11 +51,43 @@
     } else {
       snap.forEach((docSnap) => {
         const data = docSnap.data();
+        const canDelete = myEmail && (data.uploadedBy === myEmail || myEmail === ADMIN_EMAIL);
+
+        const tile = document.createElement('div');
+        tile.className = 'photo-tile';
+
         const img = document.createElement('img');
         img.src = data.url;
         img.alt = data.caption || 'Ceremony photo';
         img.loading = 'lazy';
-        grid.appendChild(img);
+        tile.appendChild(img);
+
+        if (canDelete) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'photo-delete';
+          del.setAttribute('aria-label', 'Delete photo');
+          del.textContent = '×';
+          del.addEventListener('click', async () => {
+            if (!window.confirm('Delete this photo for everyone? This can\'t be undone.')) return;
+            del.disabled = true;
+            try {
+              await deleteDoc(doc(db, 'photos', docSnap.id));
+              if (data.storagePath) {
+                await deleteObject(ref(storage, data.storagePath));
+              }
+              tile.remove();
+              if (!grid.children.length) empty.style.display = 'block';
+            } catch (err) {
+              console.error(err);
+              window.alert("Couldn't delete that photo — please try again.");
+              del.disabled = false;
+            }
+          });
+          tile.appendChild(del);
+        }
+
+        grid.appendChild(tile);
       });
     }
 

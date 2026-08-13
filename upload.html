@@ -13,6 +13,7 @@
       <a href="/live.html">Watch</a>
       <a href="/gallery.html">Photos</a>
       <a href="/upload.html" class="active">Add photo</a>
+      <a href="/recordings.html">Recordings</a>
     </nav>
 
     <p class="eyebrow">Share a photo</p>
@@ -60,12 +61,14 @@
 
       try {
         const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-        const storageRef = ref(storage, `photos/${safeName}`);
+        const storagePath = `photos/${safeName}`;
+        const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, file, { contentType: file.type });
         const url = await getDownloadURL(storageRef);
 
         await addDoc(collection(db, 'photos'), {
           url,
+          storagePath,
           caption: document.getElementById('caption').value.trim(),
           uploadedBy: guest.email,
           createdAt: serverTimestamp()
