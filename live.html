@@ -49,6 +49,17 @@
       }, 5000);
     });
 
+    // Once a broadcast ends, the player happily shows the recording and stops
+    // erroring — so if a guest leaves the page open, it would never notice a
+    // *later* broadcast starting. Keep quietly rechecking unless we're
+    // currently showing live video.
+    setInterval(() => {
+      const isLive = player.streamType === 'live' || player.streamType === 'll-live';
+      if (!isLive) {
+        player.setAttribute('playback-id', MUX_PLAYBACK_ID);
+      }
+    }, 15000);
+
     // mux-player exposes stream state once metadata loads; we reflect it in the seal + copy.
     player.addEventListener('loadedmetadata', () => {
       const isLive = player.streamType === 'live' || player.streamType === 'll-live';
