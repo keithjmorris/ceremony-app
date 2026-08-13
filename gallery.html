@@ -18,7 +18,7 @@
 
     <p class="eyebrow">Photo album</p>
     <h1>Moments</h1>
-    <p class="sub">Photos shared by everyone at the ceremony. Newest first.</p>
+    <p class="sub">Photos shared by everyone at the ceremony. Newest first. Tap a photo to enlarge it.</p>
 
     <div class="gallery-grid" id="grid"></div>
     <p class="gallery-empty" id="empty" style="display:none;">No photos have been added yet — check back soon.</p>
@@ -26,6 +26,77 @@
     <a class="foot-link" href="#" id="signout-link">Sign out</a>
   </div>
 </div>
+
+<div class="lightbox" id="lightbox">
+  <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">← Back</button>
+  <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous photo">‹</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="">
+  <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next photo">›</button>
+  <p class="lightbox-caption" id="lightbox-caption"></p>
+</div>
+
+<style>
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 19, 16, 0.94);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox-img {
+    max-width: min(90vw, 900px);
+    max-height: 78vh;
+    object-fit: contain;
+    border-radius: 3px;
+  }
+  .lightbox-caption {
+    color: #EDE9DD;
+    font-family: var(--font-body);
+    font-size: 14px;
+    margin-top: 16px;
+    text-align: center;
+    max-width: 80vw;
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: auto;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.22); }
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .lightbox-nav:hover { background: rgba(255,255,255,0.22); }
+  .lightbox-prev { left: 16px; }
+  .lightbox-next { right: 16px; }
+  @media (max-width: 640px) {
+    .lightbox-nav { width: 40px; height: 40px; font-size: 22px; }
+  }
+</style>
 
 <script type="module">
   import { requireGuest, signOutGuest, db, getGuestEmail } from '/js/auth.js';
@@ -42,6 +113,40 @@
     const empty = document.getElementById('empty');
     const myEmail = getGuestEmail();
 
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxCaption = document.getElementById('lightbox-caption');
+    const photos = []; // { url, caption }
+    let currentIndex = 0;
+
+    function openLightbox(index) {
+      currentIndex = index;
+      const p = photos[currentIndex];
+      lightboxImg.src = p.url;
+      lightboxCaption.textContent = p.caption || '';
+      lightbox.classList.add('open');
+    }
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+    }
+    function showRelative(delta) {
+      currentIndex = (currentIndex + delta + photos.length) % photos.length;
+      openLightbox(currentIndex);
+    }
+
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox-prev').addEventListener('click', () => showRelative(-1));
+    document.getElementById('lightbox-next').addEventListener('click', () => showRelative(1));
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!lightbox.classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') showRelative(-1);
+      if (e.key === 'ArrowRight') showRelative(1);
+    });
+
     // Photos are documents in the "photos" collection: { url, storagePath, caption, uploadedBy, createdAt }
     const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
@@ -52,6 +157,8 @@
       snap.forEach((docSnap) => {
         const data = docSnap.data();
         const canDelete = myEmail && (data.uploadedBy === myEmail || myEmail === ADMIN_EMAIL);
+        const photoIndex = photos.length;
+        photos.push({ url: data.url, caption: data.caption });
 
         const tile = document.createElement('div');
         tile.className = 'photo-tile';
@@ -60,6 +167,8 @@
         img.src = data.url;
         img.alt = data.caption || 'Ceremony photo';
         img.loading = 'lazy';
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', () => openLightbox(photoIndex));
         tile.appendChild(img);
 
         if (canDelete) {
