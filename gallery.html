@@ -31,11 +31,36 @@
   <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">← Back</button>
   <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous photo">‹</button>
   <img class="lightbox-img" id="lightbox-img" src="" alt="">
+  <video class="lightbox-img" id="lightbox-video" controls playsinline style="display:none;"></video>
   <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next photo">›</button>
   <p class="lightbox-caption" id="lightbox-caption"></p>
 </div>
 
 <style>
+  .photo-tile video {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    display: block;
+    background: #000;
+  }
+  .video-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
   .lightbox {
     display: none;
     position: fixed;
@@ -115,18 +140,30 @@
 
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxVideo = document.getElementById('lightbox-video');
     const lightboxCaption = document.getElementById('lightbox-caption');
-    const photos = []; // { url, caption }
+    const photos = []; // { url, caption, type }
     let currentIndex = 0;
 
     function openLightbox(index) {
       currentIndex = index;
       const p = photos[currentIndex];
-      lightboxImg.src = p.url;
+      lightboxVideo.pause();
+      if (p.type === 'video') {
+        lightboxImg.style.display = 'none';
+        lightboxVideo.style.display = 'block';
+        lightboxVideo.src = p.url;
+      } else {
+        lightboxVideo.style.display = 'none';
+        lightboxVideo.removeAttribute('src');
+        lightboxImg.style.display = 'block';
+        lightboxImg.src = p.url;
+      }
       lightboxCaption.textContent = p.caption || '';
       lightbox.classList.add('open');
     }
     function closeLightbox() {
+      lightboxVideo.pause();
       lightbox.classList.remove('open');
     }
     function showRelative(delta) {
@@ -158,18 +195,32 @@
         const data = docSnap.data();
         const canDelete = myEmail && (data.uploadedBy === myEmail || myEmail === ADMIN_EMAIL);
         const photoIndex = photos.length;
-        photos.push({ url: data.url, caption: data.caption });
+        photos.push({ url: data.url, caption: data.caption, type: data.type || 'image' });
 
         const tile = document.createElement('div');
         tile.className = 'photo-tile';
 
-        const img = document.createElement('img');
+        const isVideo = data.type === 'video';
+        const img = document.createElement(isVideo ? 'video' : 'img');
         img.src = data.url;
-        img.alt = data.caption || 'Ceremony photo';
-        img.loading = 'lazy';
+        if (isVideo) {
+          img.muted = true;
+          img.playsInline = true;
+          img.preload = 'metadata';
+        } else {
+          img.alt = data.caption || 'Ceremony photo';
+          img.loading = 'lazy';
+        }
         img.style.cursor = 'pointer';
         img.addEventListener('click', () => openLightbox(photoIndex));
         tile.appendChild(img);
+
+        if (isVideo) {
+          const badge = document.createElement('span');
+          badge.className = 'video-badge';
+          badge.textContent = '▶';
+          tile.appendChild(badge);
+        }
 
         if (canDelete) {
           const del = document.createElement('button');

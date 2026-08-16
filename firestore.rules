@@ -27,7 +27,8 @@ service cloud.firestore {
                     && request.resource.data.title is string
                     && request.resource.data.playbackId is string
                     && request.resource.data.order is number;
-      allow update, delete: if false;
+      allow update: if false;
+allow delete: if request.auth != null;
     }
 
     // Any signed-in (incl. anonymous) guest can view the album and add photos.
