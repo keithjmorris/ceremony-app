@@ -3,106 +3,211 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Add a photo or video — Ceremony</title>
+<title>Admin — Ceremony</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="wrap">
+<div class="wrap wide">
   <div class="card" id="content" style="display:none;">
-    <nav class="tabs">
-      <a href="/live.html">Watch</a>
-      <a href="/gallery.html">Photos</a>
-      <a href="/upload.html" class="active">Add photo</a>
-      <a href="/recordings.html">Recordings</a>
-    </nav>
+    <p class="eyebrow">Admin only</p>
+    <h1>Manage recordings</h1>
 
-    <p class="eyebrow">Share a photo or video</p>
-    <h1>Add to the album</h1>
-    <p class="sub" id="intro-text">Your photo or video appears in the album for every guest right after it uploads. Photos up to 15MB, videos up to 300MB.</p>
+    <h2 style="font-family:var(--font-display);font-weight:500;font-size:20px;margin:0 0 12px;">Currently on the Recordings page</h2>
+    <div id="existing-list"></div>
+    <p class="gallery-empty" id="existing-empty" style="display:none;">No recordings added yet.</p>
 
-    <form id="upload-form">
-      <label for="file">Choose a photo or video</label>
-      <input type="file" id="file" accept="image/*,video/*" required style="margin-bottom:16px;">
+    <h2 style="font-family:var(--font-display);font-weight:500;font-size:20px;margin:32px 0 12px;">Add a new recording</h2>
+    <p class="sub">Pick a recent Mux recording and give it a title — it'll appear on the Recordings page immediately.</p>
 
-      <label for="caption">Caption (optional)</label>
-      <input type="text" id="caption" placeholder="e.g. Just before the vows" style="width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:3px;font-family:var(--font-body);font-size:15px;margin-bottom:16px;">
-
-      <button type="submit" id="submit-btn">Upload</button>
-    </form>
-
+    <div id="loading" class="gallery-empty">Loading recent recordings from Mux&hellip;</div>
+    <div id="list"></div>
+    <p class="gallery-empty" id="empty" style="display:none;">No ready recordings found on Mux yet.</p>
     <div class="msg" id="msg"></div>
-    <a class="foot-link" href="/gallery.html">Back to the album</a>
+
+    <a class="foot-link" href="/recordings.html">Back to Recordings</a>
   </div>
 </div>
 
+<style>
+  .existing-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: #fff;
+  }
+  .existing-row img {
+    width: 72px;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    border-radius: 3px;
+    background: #000;
+    flex-shrink: 0;
+  }
+  .existing-row .title {
+    flex: 1;
+    font-size: 15px;
+  }
+  .existing-row button {
+    width: auto;
+    padding: 8px 14px;
+    font-size: 13px;
+    background: var(--live-red);
+  }
+  .existing-row button:hover { background: #8a2e26; }
+  .asset-row {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .asset-row .asset-thumb {
+    width: 100%;
+    max-width: 280px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    display: block;
+    margin-bottom: 10px;
+    background: #000;
+  }
+  .asset-row .meta {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .asset-row input[type="text"] {
+    margin-bottom: 10px;
+  }
+  .asset-row button {
+    width: auto;
+    padding: 9px 16px;
+    font-size: 14px;
+  }
+  .asset-row.added {
+    opacity: 0.5;
+  }
+</style>
+
 <script type="module">
-  import { requireGuest, db } from '/js/auth.js';
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
-  import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+  import { requireGuest, db, getGuestEmail } from '/js/auth.js';
+  import { ADMIN_EMAIL } from '/js/firebase-config.js';
+  import { collection, addDoc, getDocs, query, orderBy, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-  const storage = getStorage();
-  const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
-  const MAX_VIDEO_BYTES = 300 * 1024 * 1024;
+  requireGuest(async () => {
+    if (getGuestEmail() !== ADMIN_EMAIL) {
+      window.location.href = '/live.html';
+      return;
+    }
 
-  requireGuest((guest) => {
     document.getElementById('content').style.display = 'block';
 
-    const form = document.getElementById('upload-form');
+    const loading = document.getElementById('loading');
+    const list = document.getElementById('list');
+    const empty = document.getElementById('empty');
     const msg = document.getElementById('msg');
-    const btn = document.getElementById('submit-btn');
+    const existingList = document.getElementById('existing-list');
+    const existingEmpty = document.getElementById('existing-empty');
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fileInput = document.getElementById('file');
-      const file = fileInput.files[0];
-      if (!file) return;
+    // Load and render recordings already on the Recordings page, with delete buttons.
+    const existingQuery = query(collection(db, 'videos'), orderBy('order', 'asc'));
+    const existingSnap = await getDocs(existingQuery);
+    let nextOrder = existingSnap.size + 1;
 
-      const isVideo = file.type.startsWith('video/');
-      const isImage = file.type.startsWith('image/');
-      if (!isVideo && !isImage) {
-        msg.textContent = "That file doesn't look like a photo or video — please choose a different file.";
+    if (existingSnap.empty) {
+      existingEmpty.style.display = 'block';
+    } else {
+      existingSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const row = document.createElement('div');
+        row.className = 'existing-row';
+        row.innerHTML = `
+          <img src="https://image.mux.com/${data.playbackId}/thumbnail.jpg?width=200&time=1" alt="">
+          <span class="title">${data.title || 'Untitled recording'}</span>
+          <button type="button">Delete</button>
+        `;
+        row.querySelector('button').addEventListener('click', async () => {
+          if (!window.confirm(`Remove "${data.title}" from the Recordings page? This won't delete it from Mux.`)) return;
+          try {
+            await deleteDoc(doc(db, 'videos', docSnap.id));
+            row.remove();
+            if (!existingList.children.length) existingEmpty.style.display = 'block';
+          } catch (err) {
+            console.error(err);
+            window.alert("Couldn't remove that recording — please try again.");
+          }
+        });
+        existingList.appendChild(row);
+      });
+    }
+
+    try {
+      const resp = await fetch('/api/mux-recent-assets');
+      const data = await resp.json();
+      loading.style.display = 'none';
+
+      if (!resp.ok) {
+        msg.textContent = 'Could not load recordings from Mux: ' + (data.error?.error?.messages?.[0] || data.error || 'unknown error');
         msg.className = 'msg show error';
         return;
       }
-      const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
-      if (file.size > maxBytes) {
-        msg.textContent = `That file is too large — ${isVideo ? 'videos' : 'photos'} are capped at ${Math.round(maxBytes / (1024 * 1024))}MB.`;
-        msg.className = 'msg show error';
+
+      if (!data.assets || !data.assets.length) {
+        empty.style.display = 'block';
         return;
       }
 
-      btn.disabled = true;
-      btn.textContent = 'Uploading…';
-      msg.className = 'msg';
+      data.assets.forEach((asset) => {
+        const row = document.createElement('div');
+        row.className = 'asset-row';
 
-      try {
-        const folder = isVideo ? 'clips' : 'photos';
-        const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-        const storagePath = `${folder}/${safeName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file, { contentType: file.type });
-        const url = await getDownloadURL(storageRef);
+        const date = new Date(Number(asset.createdAt) * 1000);
+        const dateLabel = date.toLocaleString();
+        const durationLabel = asset.durationSeconds ? `${Math.round(asset.durationSeconds / 60)} min` : '';
 
-        await addDoc(collection(db, 'photos'), {
-          url,
-          storagePath,
-          type: isVideo ? 'video' : 'image',
-          caption: document.getElementById('caption').value.trim(),
-          uploadedBy: guest.email,
-          createdAt: serverTimestamp()
+        row.innerHTML = `
+          <img class="asset-thumb" src="https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=320&time=1" alt="" loading="lazy">
+          <div class="meta">${dateLabel}${durationLabel ? ' · ' + durationLabel : ''}</div>
+          <input type="text" placeholder="Title (e.g. Rehearsal, The Ceremony)" class="title-input">
+          <button type="button" class="add-btn">Add to Recordings</button>
+        `;
+
+        row.querySelector('.add-btn').addEventListener('click', async () => {
+          const title = row.querySelector('.title-input').value.trim();
+          if (!title) {
+            window.alert('Please enter a title first.');
+            return;
+          }
+          const btn = row.querySelector('.add-btn');
+          btn.disabled = true;
+          btn.textContent = 'Adding…';
+          try {
+            await addDoc(collection(db, 'videos'), {
+              title,
+              playbackId: asset.playbackId,
+              order: nextOrder++
+            });
+            row.classList.add('added');
+            btn.textContent = 'Added ✓';
+          } catch (err) {
+            console.error(err);
+            btn.disabled = false;
+            btn.textContent = 'Add to Recordings';
+            window.alert("Couldn't add that recording — please try again.");
+          }
         });
 
-        msg.textContent = 'Uploaded! Taking you to the album…';
-        msg.className = 'msg show success';
-        setTimeout(() => { window.location.href = '/gallery.html'; }, 900);
-      } catch (err) {
-        console.error(err);
-        msg.textContent = "That upload didn't go through — please try again.";
-        msg.className = 'msg show error';
-        btn.disabled = false;
-        btn.textContent = 'Upload';
-      }
-    });
+        list.appendChild(row);
+      });
+    } catch (err) {
+      loading.style.display = 'none';
+      console.error(err);
+      msg.textContent = 'Something went wrong loading recordings.';
+      msg.className = 'msg show error';
+    }
   });
 </script>
 </body>
